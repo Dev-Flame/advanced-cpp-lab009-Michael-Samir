@@ -34,21 +34,39 @@ bool MaxHeap::contains(int value) const {
 }
 
 void MaxHeap::push(int value) {
-    (void)value;
-    throw std::logic_error("Student implementation required: push");
+    data_.push_back(value);
+    heapifyUp(data_.size() - 1);
 }
 
 int MaxHeap::pop() {
-    throw std::logic_error("Student implementation required: pop");
+    if (empty()) {
+        throw std::logic_error("Heap is empty");
+    }
+    const int maximum = data_.front();
+    data_.front() = data_.back();
+    data_.pop_back();
+    if (!empty()) {
+        heapifyDown(0);
+    }
+    return maximum;
 }
 
 void MaxHeap::buildHeap(const std::vector<int>& values) {
-    (void)values;
-    throw std::logic_error("Student implementation required: buildHeap");
+    data_ = values;
+    // Leaves already satisfy heap order. Sift internal nodes bottom-up in O(n).
+    for (std::size_t index = data_.size() / 2; index > 0; --index) {
+        heapifyDown(index - 1);
+    }
 }
 
 std::vector<int> MaxHeap::heapSort() {
-    throw std::logic_error("Student implementation required: heapSort");
+    // Work on a copy so sorting does not consume or invalidate this heap.
+    MaxHeap copy = *this;
+    std::vector<int> sorted(size());
+    for (std::size_t index = sorted.size(); index > 0; --index) {
+        sorted[index - 1] = copy.pop();
+    }
+    return sorted;
 }
 
 std::vector<int> MaxHeap::toVector() const {
@@ -71,13 +89,30 @@ std::size_t MaxHeap::rightChildIndex(std::size_t index) {
 }
 
 void MaxHeap::heapifyUp(std::size_t index) {
-    (void)index;
-    throw std::logic_error("Student implementation required: heapifyUp");
+    while (index > 0) {
+        const std::size_t parent = parentIndex(index);
+        if (data_[parent] >= data_[index]) {
+            break;
+        }
+        swap(data_[parent], data_[index]);
+        index = parent;
+    }
 }
 
 void MaxHeap::heapifyDown(std::size_t index) {
-    (void)index;
-    throw std::logic_error("Student implementation required: heapifyDown");
+    // Indices before size()/2 are exactly the nodes with at least one child.
+    while (index < data_.size() / 2) {
+        std::size_t largerChild = leftChildIndex(index);
+        const std::size_t right = rightChildIndex(index);
+        if (right < data_.size() && data_[right] > data_[largerChild]) {
+            largerChild = right;
+        }
+        if (data_[index] >= data_[largerChild]) {
+            break;
+        }
+        swap(data_[index], data_[largerChild]);
+        index = largerChild;
+    }
 }
 
 void MaxHeap::swap(int& a, int& b) {

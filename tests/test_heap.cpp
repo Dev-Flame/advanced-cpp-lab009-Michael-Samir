@@ -4,6 +4,9 @@
 #include "project/heap.h"
 
 #include <stdexcept>
+#include <algorithm>
+#include <limits>
+#include <random>
 #include <vector>
 
 TEST_CASE("MaxHeap default constructor and empty-state checks") {
@@ -146,4 +149,77 @@ TEST_CASE("MaxHeap toVector preserves heap contents for inspection") {
     REQUIRE(std::count(data.begin(), data.end(), 9) == 1);
     REQUIRE(std::count(data.begin(), data.end(), 1) == 1);
     REQUIRE(std::count(data.begin(), data.end(), 7) == 1);
+}
+
+TEST_CASE("MaxHeap rebuild replaces old contents and supports reuse") {
+    MaxHeap heap({1, 2, 3});
+    heap.buildHeap({-5, -10});
+    REQUIRE(heap.size() == 2);
+    REQUIRE_FALSE(heap.contains(3));
+    REQUIRE(heap.pop() == -5);
+    REQUIRE(heap.pop() == -10);
+    REQUIRE(heap.empty());
+    REQUIRE_THROWS_AS(heap.pop(), std::logic_error);
+    heap.push(42);
+    REQUIRE(heap.top() == 42);
+    heap.buildHeap({});
+    REQUIRE(heap.empty());
+    REQUIRE(heap.toVector().empty());
+    REQUIRE_THROWS_AS(heap.top(), std::logic_error);
+}
+
+TEST_CASE("MaxHeap sorting preserves the original heap") {
+    MaxHeap heap({3, -1, 3, 0, 8});
+    const auto before = heap.toVector();
+    REQUIRE(heap.heapSort() == std::vector<int>{-1, 0, 3, 3, 8});
+    REQUIRE(heap.toVector() == before);
+    REQUIRE(heap.size() == 5);
+    REQUIRE(heap.top() == 8);
+    REQUIRE(heap.heapSort() == std::vector<int>{-1, 0, 3, 3, 8});
+    REQUIRE(heap.pop() == 8);
+    REQUIRE(heap.heapSort() == std::vector<int>{-1, 0, 3, 3});
+}
+
+TEST_CASE("MaxHeap handles ordered input, duplicates, and integer limits") {
+    for (const std::vector<int>& values : {
+             std::vector<int>{}, {1}, {1, 2}, {2, 1}, {1, 2, 3, 4, 5},
+             {5, 4, 3, 2, 1}, {7, 7, 7, 7},
+             {std::numeric_limits<int>::min(), 0, std::numeric_limits<int>::max()}}) {
+        MaxHeap heap(values);
+        const auto representation = heap.toVector();
+        REQUIRE(std::is_heap(representation.begin(), representation.end()));
+        auto expected = values;
+        std::sort(expected.begin(), expected.end());
+        REQUIRE(heap.heapSort() == expected);
+        for (auto position = expected.rbegin(); position != expected.rend(); ++position) {
+            REQUIRE(heap.top() == *position);
+            REQUIRE(heap.pop() == *position);
+        }
+        REQUIRE(heap.empty());
+    }
+}
+
+TEST_CASE("MaxHeap mixed operations preserve heap order and all values") {
+    MaxHeap heap;
+    std::vector<int> expected;
+    std::mt19937 random(42);
+    for (int step = 0; step < 2000; ++step) {
+        if (expected.empty() || random() % 3 != 0) {
+            const int value = static_cast<int>(random() % 201) - 100;
+            heap.push(value);
+            expected.push_back(value);
+        } else {
+            const auto maximum = std::max_element(expected.begin(), expected.end());
+            REQUIRE(heap.pop() == *maximum);
+            expected.erase(maximum);
+        }
+        const auto representation = heap.toVector();
+        REQUIRE(std::is_heap(representation.begin(), representation.end()));
+        REQUIRE(heap.size() == expected.size());
+        if (!expected.empty()) {
+            REQUIRE(heap.top() == *std::max_element(expected.begin(), expected.end()));
+        }
+    }
+    std::sort(expected.begin(), expected.end());
+    REQUIRE(heap.heapSort() == expected);
 }
